@@ -419,7 +419,7 @@ class DatastoreAPI(object):
         c.execute(check)
         row = c.fetchone()
         if row is None:
-            create_db()
+            self.create_db()
 
 
     def create_db(self):
