@@ -16,12 +16,12 @@ import errno
 import struct
 import urllib2
 
-raco_path = 'raco/'
-grappa_path = 'grappa/'
+raco_path = os.environ.get('RACO_HOME', './raco')
+grappa_path = os.environ.get('GRAPPA_HOME', './grappa')
 
-compile_path = raco_path + 'c_test_environment/'
-scheme_path = compile_path + 'schema/'
-grappa_data_path = '/shared/'
+compile_path = os.path.join(raco_path, 'c_test_environment')
+scheme_path = os.path.join(compile_path, 'schema')
+grappa_data_path = 'shared'
 
 
 def _mkdir_p(dirname):
@@ -114,9 +114,9 @@ class DatastoreAPI(object):
 
     def __update_scheme(self, filename, qid, backend):
         if backend == 'grappa':
-            schemefile = grappa_data_path + filename
+            schemefile = os.path.join(grappa_data_path, filename)
         else:
-            schemefile = scheme_path + filename
+            schemefile = os.path.join(scheme_path, filename)
             _mkdir_p(scheme_path)
         try:
             with open(schemefile, 'r') as f:
@@ -134,7 +134,7 @@ class DatastoreAPI(object):
 
     def __update_catalog(self, filename, qid, backend, col_names):
         if backend == 'grappa':
-            filename = grappa_data_path + filename + '.bin'
+            filename = os.path.join(grappa_data_path, filename + '.bin')
             col_size = len(eval(col_names))
             file_size = os.stat(filename).st_size
             output = file_size / 8 / col_size
@@ -288,7 +288,7 @@ class DatastoreAPI(object):
         schema = json.loads(row[1])
         res = []
         if backend == 'grappa':
-            filename = grappa_data_path + filename + '.bin'
+            filename = os.path.join(grappa_data_path, filename + '.bin')
             res.append(schema)
             col_size = len(eval(schema['columnNames']))
             with open(filename, 'rb') as f:
@@ -306,7 +306,7 @@ class DatastoreAPI(object):
                     res.append(val)
                     data = f.read(8)
         else:
-            filename = compile_path + filename
+            filename = os.path.join(compile_path, filename)
             res.append(schema)
             with open(filename, 'r') as f:
                 data = f.read().split('\n')

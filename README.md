@@ -1,12 +1,10 @@
 # Setup
 In server.js:
-* Set the compilepath to the path of raco/c\_test\_environment
 * Set hostname and port to the server's hostname and port
+* Set environment variable RACO\_PATH to the path of raco/.
+* Set environment variable GRAPPA\_PATH to the path of grappa/.
 
-In datastore.js:
-* Set RACO\_PATH and GRAPPA\_PATH to that of raco and grappa respectively
-
-Inserting datasets:
+# Inserting datasets
 * Create a csv file (1 dataset entry per line)
 * csv schema: 
 user name, program name, relation name, uri (for clang it is http://hostname:port), number of tuples, backend the data can be used on, the number column names, a comma separated list of column names followed by column types

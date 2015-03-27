@@ -6,7 +6,12 @@ var fs = require('fs');
 var cp = require('child_process');
 var url = require('url');
 
-var compilepath = 'raco/c_test_environment/';
+if( !process.env.RACO_HOME ) {
+    console.log('Set RACO_HOME to path to raco');
+    process.exit(9);
+}
+var compilepath = process.env.RACO_HOME + '/c_test_environment/';
+     
 var hostname = 'localhost';
 var port = 1337;
 
