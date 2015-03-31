@@ -152,14 +152,20 @@ class DatastoreAPI(object):
 
     def __update_query_success(self, qid):
         stop = time.time()
-        sel_query = 'SELECT startTime FROM dataset WHERE queryId = ?'
+        sel_query = 'SELECT relationName, startTime FROM dataset WHERE queryId = ?'
         upd_query = 'UPDATE dataset SET status = "SUCCESS", endTime = ?,' + \
-                    'elapsed = ? WHERE queryId = ?'
+                    'elapsed = ?, numTuples = ? WHERE queryId = ?'
         c = self.conn.cursor()
         c.execute(sel_query, (qid,))
-        start = c.fetchone()[0]
+        relationName, start = c.fetchone()
         elapsed = (stop - start) * 1000000000  # turn to nanoseconds
-        params_list = (stop, elapsed, qid)
+
+        # number of tuples from %.count file
+        num_tuples = -1
+        with open(os.path.join(compile_path, relationName+'.count')) as inp:
+            num_tuples = int(inp.readline())
+
+        params_list = (stop, elapsed, num_tuples, qid)
         c.execute(upd_query, params_list)
         self.conn.commit()
         print str(stop) + ' ' + qid + ' done'
