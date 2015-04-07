@@ -124,31 +124,12 @@ class DatastoreAPI(object):
                 c = self.conn.cursor()
                 c.execute(query, (json.dumps(schema), qid))
                 self.conn.commit()
-                self.__update_catalog(filename, qid, backend, data[0])
-            self.__update_query_success(qid)
+            self.__update_query_success(qid, backend)
         except sqlite3.Error as e:
             self.__update_query_error(qid, e.output)
 
 
-    def __update_catalog(self, filename, qid, backend, col_names):
-        if backend == 'grappa':
-            filename = os.path.join(grappa_data_path, filename + '.bin')
-            col_size = len(eval(col_names))
-            file_size = os.stat(filename).st_size
-            output = file_size / 8 / col_size
-        else:
-            filename = compile_path + filename
-            p1 = Popen(['cat', filename], stdout=subprocess.PIPE)
-            p2 = Popen(['wc', '-l'], stdin=p1.stdout, stdout=subprocess.PIPE)
-            p1.stdout.close()  # Allow p1 to receive a SIGPIPE if p2 exits.
-            output = int(p2.communicate()[0])
-        c = self.conn.cursor()
-        query = 'UPDATE dataset SET numTuples = ? WHERE queryId = ?'
-        c.execute(query, (output, qid))
-        self.conn.commit()
-
-
-    def __update_query_success(self, qid):
+    def __update_query_success(self, qid, backend):
         stop = time.time()
         sel_query = 'SELECT relationName, startTime FROM dataset WHERE queryId = ?'
         upd_query = 'UPDATE dataset SET status = "SUCCESS", endTime = ?,' + \
@@ -160,8 +141,9 @@ class DatastoreAPI(object):
 
         # number of tuples from %.count file
         num_tuples = -1
-        with open(os.path.join(compile_path, relationName+'.count')) as inp:
-            num_tuples = int(inp.readline())
+        if backend != 'grappa': # grappa will return -1 count
+          with open(os.path.join(compile_path, relationName+'.count')) as inp:
+              num_tuples = int(inp.readline())
 
         params_list = (stop, elapsed, num_tuples, qid)
         c.execute(upd_query, params_list)
