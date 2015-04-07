@@ -335,6 +335,11 @@ class DatastoreAPI(object):
         c = self.conn.cursor()
         c.execute(query, (backend, min))
         row = c.fetchone()
+
+# FIXME: what should be the error handling here?
+        if row==None:
+          return 0
+
         return row[0]
 
 
