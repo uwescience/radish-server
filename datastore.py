@@ -20,8 +20,7 @@ raco_path = os.environ.get('RACO_HOME', './raco')
 grappa_path = os.environ.get('GRAPPA_HOME', './grappa')
 
 compile_path = os.path.join(raco_path, 'c_test_environment')
-scheme_path = os.path.join(compile_path, 'schema')
-grappa_data_path = 'shared'
+grappa_data_path = os.path.join(grappa_path, 'build/Make+Release/applications/join')
 
 
 def _mkdir_p(dirname):
@@ -114,10 +113,9 @@ class DatastoreAPI(object):
 
     def __update_scheme(self, filename, qid, backend):
         if backend == 'grappa':
-            schemefile = os.path.join(grappa_data_path, filename)
+            schemefile = os.path.join(grappa_data_path, filename+'.scheme')
         else:
-            schemefile = os.path.join(scheme_path, filename)
-            _mkdir_p(scheme_path)
+            schemefile = os.path.join(compile_path, filename+'.scheme')
         try:
             with open(schemefile, 'r') as f:
                 data = f.read().split('\n')
