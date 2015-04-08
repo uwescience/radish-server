@@ -9,6 +9,7 @@ import time
 import json
 import datetime
 import subprocess
+import csv
 from subprocess import Popen
 
 import os
@@ -378,25 +379,23 @@ class DatastoreAPI(object):
 
         c = self.conn.cursor()
         with open(params[0], 'r') as f:
-            data = f.read().split('\n')
+            reader = csv.reader(f, delimiter=',')
             query = 'INSERT INTO dataset VALUES' + \
                     '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            for row in data:
-                if row=='': break
+            for row in reader:
                 cur_time = time.time()
                 qid = self.__latest_qid() + 1
-                val = row.split(',')
-                num_cols = int(val[6])
+                num_cols = int(row[6])
                 col_names = []
                 col_types = []
                 for i in range(num_cols):
-                    col_names.append(val[7+i])
-                    col_types.append(val[7+i+num_cols])
+                    col_names.append(row[7+i])
+                    col_types.append(row[7+i+num_cols])
                 schema = json.dumps({'columnNames': str(col_names),
                                      'columnTypes': str(col_types)})
-                param_list = (val[0], val[1], val[2], qid, cur_time, val[3],
-                              'SUCCESS', cur_time, cur_time, 0, val[4], schema,
-                              val[5], 'Insert dataset')
+                param_list = (row[0], row[1], row[2], qid, cur_time, row[3],
+                              'SUCCESS', cur_time, cur_time, 0, row[4], schema,
+                              row[5], 'Insert dataset')
                 c.execute(query, param_list)
                 self.conn.commit()
 
