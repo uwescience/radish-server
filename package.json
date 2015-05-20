@@ -1,13 +1,15 @@
 {
-    "name": "clangserver",
-    "description": "REST server for clang/grappa query backends",
-    "author": "York Wei <yorkw@cs.washington.edu>",
-    "dependencies": {
-        "sqlite3": ">= 2.2.3"
-    },
-    "engine": "node >= 0.10.3",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/uwescience/myria-web/tree/grappa-master"
-    }
+  "name": "clangserver",
+  "description": "REST server for clang/grappa query backends",
+  "author": "York Wei <yorkw@cs.washington.edu>",
+  "dependencies": {
+    "body-parser": "^1.12.4",
+    "express": "^4.12.4",
+    "sqlite3": ">= 2.2.3"
+  },
+  "engine": "node >= 0.10.3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uwescience/myria-web/tree/grappa-master"
+  }
 }
