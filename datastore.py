@@ -10,6 +10,7 @@ import json
 import datetime
 import subprocess
 import csv
+from collections import OrderedDict
 from subprocess import Popen
 
 import os
@@ -49,6 +50,42 @@ def parse_options(args):
 class DatastoreAPI(object):
     def __init__(self):
         self.conn = sqlite3.connect('dataset.db')
+        self.dataset_schema = OrderedDict()
+
+        def _schema_add(k, v):
+            self.dataset_schema[k] = v
+            return None
+
+        _ = [_schema_add(k, v) for k, v in [
+            ('userName', 'text'),
+            ('programName', 'text'),
+            ('relationName', 'text'),
+            ('queryId', 'int'),
+            ('created', 'datetime'),
+            ('url', 'text'),
+            ('status', 'text'),
+            ('startTime', 'datetime'),
+            ('endTime', 'datetime'),
+            ('elapsed', 'datetime'),
+            ('numTuples', 'int'),
+            ('schema', 'text'),
+            ('backend', 'text'),
+            ('query', 'text'),
+            ('storage', 'text')
+        ]]
+
+    def _named(self, row):
+        if row:
+            return OrderedDict([(k, cv) for (k, cv) in
+                                zip(self.dataset_schema.keys(), row)])
+        else:
+            return None
+
+    def _fetchone_star(self, cursor):
+        """Fetches one row from the cursor and returns the result
+        as an ordered dictionary. Only works for SELECT * from dataset...
+        queries"""
+        return self._named(cursor.fetchone())
 
     def process_query(self, params):
         """params: rel_keys url qid backend rawQuery
@@ -62,7 +99,7 @@ class DatastoreAPI(object):
         c = self.conn.cursor()
         cur_time = time.time()
         query = 'INSERT INTO dataset VALUES' + \
-                ' (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                '(' + ','.join('?' for _ in self.dataset_schema) + ')'
         param_list = (relkey[0], relkey[1], relkey[2], qid, cur_time, params[1],
                       'ACCEPTED', cur_time, None, 0, 0, default_schema, backend,
                       raw_query)
@@ -73,7 +110,6 @@ class DatastoreAPI(object):
         except sqlite3.IntegrityError as e:
             self.__update_query_error(qid, e.output)
 
-
     def update_query_run(self, params):
         """params: qid filename backend"""
 
@@ -82,7 +118,6 @@ class DatastoreAPI(object):
         c.execute(query, (params[0],))
         self.conn.commit()
         self.__run_query(params)
-
 
     def __run_query(self, params):
         """params: qid filename backend"""
@@ -103,14 +138,12 @@ class DatastoreAPI(object):
         except subprocess.CalledProcessError as e:
             self.__update_query_error(qid, e.output)
 
-
     def __update_query_error(self, qid, e):
         query = 'UPDATE dataset SET status = "ERROR" WHERE queryId = ?'
         c = self.conn.cursor()
         c.execute(query, (qid,))
         self.conn.commit()
         print 'error:' + str(e)
-
 
     def __update_scheme(self, filename, qid, backend):
         if backend == 'grappa':
@@ -128,7 +161,6 @@ class DatastoreAPI(object):
             self.__update_query_success(qid, backend)
         except sqlite3.Error as e:
             self.__update_query_error(qid, e.output)
-
 
     def __update_query_success(self, qid, backend):
         stop = time.time()
@@ -151,25 +183,25 @@ class DatastoreAPI(object):
         self.conn.commit()
         print str(stop) + ' ' + qid + ' done'
 
-
     def get_query_status(self, params):
         """params: qid"""
 
         c = self.conn.cursor()
         query = 'SELECT * FROM dataset WHERE queryId= ?'
         c.execute(query, (params[0],))
-        row = c.fetchone()
-        if row[6] == 'SUCCESS':
+        row = self._fetchone_star()
+        if row['status'] == 'SUCCESS':
             fin = datetime.datetime.fromtimestamp(row[8]).isoformat()
-            elapsed = row[9]
+            elapsed = row['elapsed']
         else:
             fin = 'None'
-            elapsed = (time.time() - row[7]) * 1000000000
-        res = {'status': row[6], 'queryId': row[3], 'url': row[5],
-               'startTime': datetime.datetime.fromtimestamp(row[7]).isoformat(),
+            elapsed = (time.time() - row['startTime']) * 1000000000
+        res = {'status': row['status'], 'queryId': row['queryId'],
+               'url': row['url'],
+               'startTime': datetime.datetime.fromtimestamp(
+                   row['startTime']).isoformat(),
                'finishTime': fin, 'elapsedNanos': elapsed, 'profilingMode': []}
         print json.dumps(res)
-
 
     def check_catalog(self, params):
         """params: userName programName relationName"""
@@ -177,19 +209,21 @@ class DatastoreAPI(object):
         query = 'SELECT * FROM dataset WHERE userName = ? AND ' + \
                 'programName = ? AND relationName = ? ORDER BY queryId DESC'
         c.execute(query, (params[0], params[1], params[2],))
-        row = c.fetchone()
+        row = self._fetchone_star(c)
         res = {}
         if not row:
             print json.dumps(res)  # returns empty json
         else:
-            col_names = json.loads(row[11])['columnNames']
-            col_types = json.loads(row[11])['columnTypes']
-            res = {'relationKey': {'userName': params[0], 'programName': params[1],
-                                   'relationName': params[2]}, 'queryId': row[3],
-                   'created': row[4], 'url': row[5], 'numTuples': row[10],
+            col_names = json.loads(row['schema'])['columnNames']
+            col_types = json.loads(row['schema'])['columnTypes']
+            res = {'relationKey': {'userName': params['userName'],
+                                   'programName': params[1],
+                                   'relationName': params[2]},
+                   'queryId': row['queryId'],
+                   'created': row['created'], 'url': row['url'],
+                   'numTuples': row['numTuples'],
                    'colNames': col_names, 'colTypes': col_types}
             print json.dumps(res)
-
 
     def select_table(self, params):
         """params: min max backend"""
@@ -211,16 +245,21 @@ class DatastoreAPI(object):
             c.execute(query, (backend, min, max))
         rows = c.fetchall()
         for row in rows:
-            val = {'relationKey': {'userName': row[0], 'programName': row[1],
-                                   'relationName': row[2]}, 'queryId': row[3],
-                   'created': row[4], 'uri': row[5], 'status': row[6],
-                   'startTime': row[7], 'finishTime': row[8],
-                   'elapsedNanos': row[9], 'numTuples': row[10],
-                   'schema': row[11], 'backend': row[12], 'rawQuery': row[13]}
+            row = self._named(row)
+            val = {'relationKey': {'userName': row['userName'],
+                                   'programName': row['programName'],
+                                   'relationName': row['relationName']},
+                   'queryId': row['queryId'],
+                   'created': row['created'], 'uri': row['uri'],
+                   'status': row['status'],
+                   'startTime': row['startTime'], 'finishTime': row['endTime'],
+                   'elapsedNanos': row['elapsedNanos'],
+                   'numTuples': row['numTuples'],
+                   'schema': row['schema'], 'backend': row['backend'],
+                   'rawQuery': row['query']}
             res.append(val)
         print json.dumps({'min': self.__get_min_entry(min, backend), 
                           'max': self.__get_max_entry(max, backend), 'results': res})
-
 
     def select_row(self, params):
         """params: qid"""
@@ -229,12 +268,20 @@ class DatastoreAPI(object):
         query = 'SELECT * FROM dataset WHERE queryId = ?'
         c = self.conn.cursor()
         for row in c.execute(query, (params[0],)):
-            scheme = json.loads(row[11])
-            val = {'relationKey': {'userName': row[0], 'programName': row[1],
-                                   'relationName': row[2]}, 'queryId': row[3],
-                   'created': row[4], 'uri': row[5], 'status': row[6],
-                   'startTime': row[7], 'endTime': row[8], 'elapsedNanos': row[9],
-                   'numTuples': row[10], 'schema': scheme, 'rawQuery': row[13]}
+            row = self._named(row)
+            scheme = json.loads(row['schema'])
+            val = {'relationKey': {'userName': row['userName'],
+                                   'programName': row['programName'],
+                                   'relationName': row['relationName']},
+                   'queryId': row['queryId'],
+                   'created': row['created'],
+                   'uri': row['uri'],
+                   'status': row['status'],
+                   'startTime': row['startTime'],
+                   'endTime': row['endTime'],
+                   'elapsedNanos': row['elapsed'],
+                   'numTuples': row['numTuples'],
+                   'schema': scheme, 'rawQuery': row['query']}
             res.append(val)
         print json.dumps(res)
 
@@ -245,12 +292,19 @@ class DatastoreAPI(object):
         query = 'SELECT * FROM dataset WHERE backend = ?' 
         c = self.conn.cursor()
         for row in c.execute(query, (backend,)):
-            val = {'relationKey': {'userName': row[0], 'programName': row[1],
-                                   'relationName': row[2]}, 'queryId': row[3],
-                   'created': row[4], 'uri': row[5], 'status': row[6],
-                   'startTime': row[7], 'finishTime': row[8],
-                   'elapsedNanos': row[9], 'numTuples': row[10],
-                   'schema': row[11], 'backend': row[12], 'rawQuery': row[13]}
+            row = self._named(row)
+            val = {'relationKey': {'userName': row['userName'],
+                                   'programName': row['programName'],
+                                   'relationName': row['relationName']},
+                   'queryId': row['queryId'],
+                   'created': row['created'], 'uri': row['uri'],
+                   'status': row['status'],
+                   'startTime': row['startTime'],
+                   'finishTime': row['endTime'],
+                   'elapsedNanos': row['elapsed'],
+                   'numTuples': row['numTuples'],
+                   'schema': row['schema'], 'backend': row['backend'],
+                   'rawQuery': row['query']}
             res.append(val)
         print json.dumps(res)
 
@@ -264,7 +318,6 @@ class DatastoreAPI(object):
         row = c.fetchone()
         filename = row[0]
         self.__get_query_results(filename, qid)
-
 
     def __get_query_results(self, filename, qid):
         query = 'SELECT backend, schema FROM dataset WHERE queryId= ?'
@@ -304,7 +357,6 @@ class DatastoreAPI(object):
 
         print json.dumps(res)
 
-
     def get_num_tuples(self, params):
         """params: username, programname, relationname"""
 
@@ -315,7 +367,6 @@ class DatastoreAPI(object):
         row = c.fetchone()
         res = {'numTuples': row[0]}
         print json.dumps(res)
-
 
     def get_latest_qid(self, params):
         """params: <none>"""
@@ -329,7 +380,6 @@ class DatastoreAPI(object):
         else:
             print row[0]
 
-
     def __get_min_entry(self, min, backend):
         query = 'SELECT queryId FROM dataset WHERE backend = ? AND ' \
             + 'queryId >= ? ORDER BY queryId LIMIT 1'
@@ -342,7 +392,6 @@ class DatastoreAPI(object):
           return 0
 
         return row[0]
-
 
     def __get_max_entry(self, max, backend):
         if max == 0:
@@ -362,7 +411,6 @@ class DatastoreAPI(object):
         else:
             return 0
 
-
     def __latest_qid(self):
         query = 'SELECT queryId FROM dataset ORDER BY queryId DESC LIMIT 1'
         c = self.conn.cursor()
@@ -373,7 +421,6 @@ class DatastoreAPI(object):
         else:
             return row[0]
 
-
     def insert_new_dataset(self, params):
         """params: filename of csv to import new dataset(s)"""
 
@@ -381,7 +428,7 @@ class DatastoreAPI(object):
         with open(params[0], 'r') as f:
             reader = csv.reader(f, delimiter=',')
             query = 'INSERT INTO dataset VALUES' + \
-                    '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                    '(' + ','.join('?' for _ in self.dataset_schema) + ')'
             for row in reader:
                 cur_time = time.time()
                 qid = self.__latest_qid() + 1
@@ -389,16 +436,15 @@ class DatastoreAPI(object):
                 col_names = []
                 col_types = []
                 for i in range(num_cols):
-                    col_names.append(row[7+i])
-                    col_types.append(row[7+i+num_cols])
+                    col_names.append(row[8+i])
+                    col_types.append(row[8+i+num_cols])
                 schema = json.dumps({'columnNames': str(col_names),
                                      'columnTypes': str(col_types)})
                 param_list = (row[0], row[1], row[2], qid, cur_time, row[3],
                               'SUCCESS', cur_time, cur_time, 0, row[4], schema,
-                              row[5], 'Insert dataset')
+                              row[5], 'Insert dataset', row[7])
                 c.execute(query, param_list)
                 self.conn.commit()
-
 
     def check_db(self):
         """checks if table exists, otherwise creates the db"""
@@ -411,15 +457,12 @@ class DatastoreAPI(object):
         if row is None:
             self.create_db()
 
-
     def create_db(self):
         c = self.conn.cursor()
-        create = 'CREATE TABLE IF NOT EXISTS dataset (userName text,' + \
-                 ' programName text, relationName text, queryId int,' + \
-                 ' created datetime, url text, status text,' + \
-                 ' startTime datetime, endTime datetime, elapsed datetime,' + \
-                 ' numTuples int, schema text, backend text, query text,' + \
-                 'PRIMARY KEY (queryId))'
+        create = """CREATE TABLE IF NOT EXISTS dataset (""" +\
+            ','.join(["{name} {type}".format(name=k, type=v) for k, v in
+            self.dataset_schema.items()]) + "," +\
+            'PRIMARY KEY (queryId))'
         c.execute(create)
         self.conn.commit()
 
