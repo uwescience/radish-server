@@ -39,7 +39,7 @@ app.post('/tuples', function(req, res) {
       processRelKey(req, res, getTuples);
 });
 app.get('/data', function(req, res) {
-    var qid = req.params.query.qid
+    var qid = req.query.qid
     getResults(res, qid);
 });
 app.post('/catalog', function(req, res) {
@@ -119,12 +119,12 @@ function processMinMaxGET(req, res, callbackfn) {
 
 
 function processQid(req, res, callbackfn) {
-    var qid = req.params.query.qid;
+    var qid = req.query.qid;
     callbackfn(res, qid);
 }
 
 function processBackend(req, res, callbackfn) {
-    var backend = req.params.query.backend;
+    var backend = req.query.backend;
     callbackfn(res, backend);
 }
 
