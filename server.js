@@ -113,7 +113,7 @@ function processMinMaxPOST(req, res, callbackfn) {
       callbackfn(res, backend, min, max);
   }
 function processMinMaxGET(req, res, callbackfn) {
-    var backend = req.params.query.backend;
+    var backend = req.query.backend;
     callbackfn(res, backend, 0, 0);
 }
 
