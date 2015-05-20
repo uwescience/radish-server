@@ -100,9 +100,19 @@ class DatastoreAPI(object):
         cur_time = time.time()
         query = 'INSERT INTO dataset VALUES' + \
                 '(' + ','.join('?' for _ in self.dataset_schema) + ')'
+
+        # for now in these queries: 
+        #  clang always stores ascii
+        #  grappa always writes binary
+        if backend == 'clang':
+            storage = 'row_ascii'
+        else:
+            storage = 'binary'
+
         param_list = (relkey[0], relkey[1], relkey[2], qid, cur_time, params[1],
-                      'ACCEPTED', cur_time, None, 0, 0, default_schema, backend,
-                      raw_query)
+                      'ACCEPTED', cur_time, None, 0, 0, default_schema, backend, 
+                      raw_query,
+                      storage)
         try:
             c.execute(query, param_list)
             self.conn.commit()
@@ -189,9 +199,9 @@ class DatastoreAPI(object):
         c = self.conn.cursor()
         query = 'SELECT * FROM dataset WHERE queryId= ?'
         c.execute(query, (params[0],))
-        row = self._fetchone_star()
+        row = self._fetchone_star(c)
         if row['status'] == 'SUCCESS':
-            fin = datetime.datetime.fromtimestamp(row[8]).isoformat()
+            fin = datetime.datetime.fromtimestamp(row['endTime']).isoformat()
             elapsed = row['elapsed']
         else:
             fin = 'None'
@@ -222,6 +232,7 @@ class DatastoreAPI(object):
                    'queryId': row['queryId'],
                    'created': row['created'], 'url': row['url'],
                    'numTuples': row['numTuples'],
+                   'storage': row['storage'],
                    'colNames': col_names, 'colTypes': col_types}
             print json.dumps(res)
 
@@ -256,6 +267,7 @@ class DatastoreAPI(object):
                    'elapsedNanos': row['elapsed'],
                    'numTuples': row['numTuples'],
                    'schema': row['schema'], 'backend': row['backend'],
+                   'storage': row['storage'],
                    'rawQuery': row['query']}
             res.append(val)
         print json.dumps({'min': self.__get_min_entry(min, backend), 
@@ -281,7 +293,7 @@ class DatastoreAPI(object):
                    'endTime': row['endTime'],
                    'elapsedNanos': row['elapsed'],
                    'numTuples': row['numTuples'],
-                   'schema': scheme, 'rawQuery': row['query']}
+                   'schema': scheme, 'storage': row['storage'], 'rawQuery': row['query']}
             res.append(val)
         print json.dumps(res)
 
@@ -304,6 +316,7 @@ class DatastoreAPI(object):
                    'elapsedNanos': row['elapsed'],
                    'numTuples': row['numTuples'],
                    'schema': row['schema'], 'backend': row['backend'],
+                   'storage': row['storage'],
                    'rawQuery': row['query']}
             res.append(val)
         print json.dumps(res)
