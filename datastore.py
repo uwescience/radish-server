@@ -216,7 +216,7 @@ class DatastoreAPI(object):
         else:
             col_names = json.loads(row['schema'])['columnNames']
             col_types = json.loads(row['schema'])['columnTypes']
-            res = {'relationKey': {'userName': params['userName'],
+            res = {'relationKey': {'userName': params[0],
                                    'programName': params[1],
                                    'relationName': params[2]},
                    'queryId': row['queryId'],
@@ -250,10 +250,10 @@ class DatastoreAPI(object):
                                    'programName': row['programName'],
                                    'relationName': row['relationName']},
                    'queryId': row['queryId'],
-                   'created': row['created'], 'uri': row['uri'],
+                   'created': row['created'], 'uri': row['url'],
                    'status': row['status'],
                    'startTime': row['startTime'], 'finishTime': row['endTime'],
-                   'elapsedNanos': row['elapsedNanos'],
+                   'elapsedNanos': row['elapsed'],
                    'numTuples': row['numTuples'],
                    'schema': row['schema'], 'backend': row['backend'],
                    'rawQuery': row['query']}
