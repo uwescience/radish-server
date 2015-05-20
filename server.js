@@ -6,6 +6,7 @@ var fs = require('fs');
 var cp = require('child_process');
 var url = require('url');
 
+
 if( !process.env.RACO_HOME ) {
     console.log('Set RACO_HOME to path to raco');
     process.exit(9);
@@ -44,6 +45,12 @@ http.createServer(function (req, res) {
     case '/queries':
       processMinMax(req, res, selectTable);
     break;
+    case '/new':
+      processNew(req, res);
+    break;
+    case '/uploadLocation':
+      processUploadLocation(req, res);
+    break;
     default:
     processQuery(req, res);
     break;
@@ -65,6 +72,42 @@ function processRelKey(req, res, callbackfn) {
     });
   }
 }
+
+function processUploadLocation(req, res) {
+  if (req.method == "GET") {
+    var body = '';
+    req.on('data', function (chunk) {
+      body += chunk;
+    });
+    
+   req.on('end', function() {
+      var j = {'dir': __dirname};
+      sendJSONResponse(res, JSON.stringify(j));
+   });
+  }
+}
+     
+
+
+function processNew(req, res) {
+  if (req.method == "POST") {
+    var body = '';
+    req.on('data', function (chunk) {
+      body += chunk;
+    });
+
+    req.on('end', function() {
+      var json = JSON.parse(body)
+      var uploadinfo = json.uploadinfo
+
+      cp.exec(py + ' insert_new_dataset -p ' + uploadinfo, function (err, stdout) {
+        if (err) { console.log('processNew ' + err.stack); } 
+        else { sendJSONResponse(res, stdout); }
+      });
+    });
+  }
+}
+
 
 function processMinMax(req, res, callbackfn) {
   if (req.method == "POST") {
