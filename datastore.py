@@ -9,6 +9,7 @@ import time
 import json
 import datetime
 import subprocess
+import re
 import csv
 from collections import OrderedDict
 from subprocess import Popen
@@ -182,10 +183,13 @@ class DatastoreAPI(object):
         relationName, start = c.fetchone()
         elapsed = (stop - start) * 1000000000  # turn to nanoseconds
 
-        # number of tuples from %.count file
+        # number of tuples from %.count file or logs
         num_tuples = -1
-        if backend != 'grappa': # grappa will return -1 count
-          with open(os.path.join(compile_path, relationName+'.count')) as inp:
+        if backend == 'grappa': 
+          with open(os.path.join(compile_path, 'logs', 'grappa_'+relationName+'.out'), 'r') as inp:
+            num_tuples = re.search('"emit_count": (\d+)', inp.read()).group(1)
+        else:
+          with open(os.path.join(compile_path, relationName+'.count'), 'r') as inp:
               num_tuples = int(inp.readline())
 
         params_list = (stop, elapsed, num_tuples, qid)
