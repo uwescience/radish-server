@@ -1,4 +1,7 @@
 # Setup
+Install dependencies
+* `npm install`
+
 In server.js:
 * Set hostname and port to the server's hostname and port
 * Set environment variable RACO\_PATH to the path of raco/.
