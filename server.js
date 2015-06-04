@@ -56,13 +56,17 @@ app.post('/new', function(req, res) {
     var uploadinfo = json.uploadinfo;
     console.log("/new got " + json + " AND " + uploadinfo);
 
-    cp.exec(py + ' insert_new_dataset -p ' + uploadinfo, function (err, stdout) {
+    var full_path = compilepath + '/' + uploadinfo;
+
+    cp.exec(py + ' insert_new_dataset -p ' + full_path, function (err, stdout) {
         if (err) { console.error('processNew ' + err.stack); } 
         else { sendJSONResponse(res, stdout); }
     });
 });
 app.get('/uploadLocation', function(req, res) {
-    var j = {'dir': __dirname};
+    //var loc = __dirname;
+    var loc = compilepath;
+    var j = {'dir': loc};
     sendJSONResponse(res, JSON.stringify(j));
 });
 
